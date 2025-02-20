@@ -1,8 +1,4 @@
-import sys
-import cv2
 import time
-import pyaudio
-import wave
 import threading
 import subprocess
 from KennelRig.WiggleChecker import WiggleChecker

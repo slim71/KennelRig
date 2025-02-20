@@ -19,7 +19,15 @@ class WiggleChecker:
     writer: cv2.VideoWriter
     start_time: float
 
-    def __init__(self, start_event: threading.Event, width:int = 640, height: int = 480, duration_min: int = 30, fps: float = 20.0, video_file: str = "video"):
+    def __init__(
+        self,
+        start_event: threading.Event,
+        width: int = 640,
+        height: int = 480,
+        duration_min: int = 30,
+        fps: float = 20.0,
+        video_file: str = "video",
+    ):
         """Construct a default object."""
         self.running = False
         self.frame_width = width
@@ -34,7 +42,7 @@ class WiggleChecker:
         self.fourcc = cv2.VideoWriter_fourcc(*"MJPG")  #  TODO: different if windows?
 
         # Video capturing channel
-        self.camera = cv2.VideoCapture(0) # Camera#0 aka first default camera
+        self.camera = cv2.VideoCapture(0)  # Camera#0 aka first default camera
         if not self.camera.isOpened():
             print("Error: Could not open camera")
             sys.exit(1)
@@ -52,7 +60,9 @@ class WiggleChecker:
         # Wait until signaled to start
         self.start_event.wait()
         self.start_time = time.time()
-        self.first_frame_time = None  # New: to capture timestamp of the first audio buffer
+        self.first_frame_time = (
+            None  # New: to capture timestamp of the first audio buffer
+        )
 
         while self.running and self.camera.isOpened():
             # Capture frame-by-frame
@@ -80,7 +90,7 @@ class WiggleChecker:
             if cv2.waitKey(10) == ord("q"):
                 break
 
-        self.close() # TODO: close from main thread
+        self.close()  # TODO: close from main thread
 
     def start(self):
         """Launch the video recording function using a thread."""
@@ -97,14 +107,13 @@ class WiggleChecker:
             cv2.destroyAllWindows()
 
     def get_video_feature(self, propId):
-        return self.camera.get(propId) # propId in [0;18]
+        return self.camera.get(propId)  # propId in [0;18]
 
     def set_video_feature(self, propId, value):
-        self.camera.set(propId, value) # propId in [0;18]
+        self.camera.set(propId, value)  # propId in [0;18]
 
 
-
-
+# TODO: divide in parts
 # # Check if 30 minutes have passed
 # if time.time() - start_time >= max_duration:
 #     out.release()

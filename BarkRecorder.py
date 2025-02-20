@@ -1,10 +1,7 @@
-import sys
-import cv2
 import time
 import pyaudio
 import wave
 import threading
-import subprocess
 
 
 class BarkRecorder:
@@ -23,7 +20,14 @@ class BarkRecorder:
     start_event: threading.Event
     start_time: float
 
-    def __init__(self, start_event: threading.Event, rate: int, frames_per_buffer: int = 1024, channels: int = 1, audio_file: str = "audio"):
+    def __init__(
+        self,
+        start_event: threading.Event,
+        rate: int,
+        frames_per_buffer: int = 1024,
+        channels: int = 1,
+        audio_file: str = "audio",
+    ):
         # Rate of device: int(self.listener.get_default_input_device_info()["defaultSampleRate"])
         self.rate = rate
         self.frames_per_buffer = frames_per_buffer
@@ -38,7 +42,9 @@ class BarkRecorder:
         self.start_time = None
 
         self.listener = pyaudio.PyAudio()
-        print(f"device rate: {int(self.listener.get_default_input_device_info()['defaultSampleRate'])}")
+        print(
+            f"device rate: {int(self.listener.get_default_input_device_info()['defaultSampleRate'])}"
+        )
         self.audio_filename = f"{self.filename}_{self.part_number}.wav"
         self.stream = self.listener.open(
             format=self.format,
@@ -54,11 +60,15 @@ class BarkRecorder:
         self.running = True
         self.start_time = time.time()
         self.stream.start_stream()
-        self.first_buffer_time = None  # New: to capture timestamp of the first audio buffer
+        self.first_buffer_time = (
+            None  # New: to capture timestamp of the first audio buffer
+        )
 
         while self.running and self.stream.is_active():
             try:
-                data = self.stream.read(self.frames_per_buffer, exception_on_overflow=False)
+                data = self.stream.read(
+                    self.frames_per_buffer, exception_on_overflow=False
+                )
                 # On the first successful read, record the timestamp
                 if self.first_buffer_time is None:
                     self.first_buffer_time = time.time()
@@ -78,7 +88,7 @@ class BarkRecorder:
             self.audio_thread.join()
 
         if self.stream.is_active():
-                self.stream.stop_stream()
+            self.stream.stop_stream()
 
         self.stream.close()
 
@@ -95,4 +105,3 @@ class BarkRecorder:
     def start(self):
         self.audio_thread = threading.Thread(target=self.record)
         self.audio_thread.start()
-

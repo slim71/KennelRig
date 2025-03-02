@@ -1,8 +1,9 @@
-import signal
+"""WiggleChecker handles the video recording."""
 import sys
-import cv2
-import time
 import threading
+import time
+
+import cv2
 
 
 class WiggleChecker:
@@ -29,8 +30,18 @@ class WiggleChecker:
         duration_min: int = 30,
         fps: float = 20.0,
         video_file: str = "video",
-    ):
-        """Construct a default object."""
+    ) -> None:
+        """Construct a default object.
+
+        Args:
+            start_event (threading.Event): Event to wait upon before starting.
+            width (int, optional): Width of the video to record. Defaults to 640.
+            height (int, optional): Height of the video to record. Defaults to 480.
+            duration_min (int, optional): Duration of portions to record in minutes. Defaults to 30.
+            fps (float, optional): Frame4s per seconds of the recording. Defaults to 20.0.
+            video_file (str, optional): Name of the resulting file. Defaults to "video".
+
+        """
         self.running = False
         self.frame_width = width
         self.frame_height = height
@@ -61,7 +72,7 @@ class WiggleChecker:
             isColor=True,
         )
 
-    def start(self):
+    def start(self) -> None:
         """Launch the video recording function using a thread."""
         self.running = True
         self.stop_event.clear()
@@ -69,17 +80,19 @@ class WiggleChecker:
         video_thread.daemon = True
         video_thread.start()
 
-    def signal_stop(self):
-        self.running  = False
+    def signal_stop(self) -> None:
+        """Respond to the stop signal."""
+        self.running = False
         self.stop_event.set()
 
-    def stop(self):
+    def stop(self) -> None:
+        """Stop the object functionalities."""
         # When everything done, release the capture
         if self.camera.isOpened():
             self.camera.release()
         self.writer.release()
 
-    def display(self):
+    def display(self) -> None:
         """Run the display loop on the main thread."""
         while self.running:
             if self.current_frame is not None:
@@ -95,8 +108,8 @@ class WiggleChecker:
 
         print("out of while loop")
 
-
-    def record(self):
+    def record(self) -> None:
+        """Record the video."""
         # Wait until signaled to start
         self.start_event.wait()
         self.start_time = time.time()
@@ -120,15 +133,31 @@ class WiggleChecker:
             # Write the frame to the video file
             self.writer.write(frame)
             self.current_frame = frame
-        
+
         print("Video recording thread exiting, signaling stop")
         self.signal_stop()
 
-    def get_video_feature(self, propId):
-        return self.camera.get(propId)  # propId in [0;18]
+    def get_video_feature(self, prop_id: int) -> any:
+        """Getter function for a property.
 
-    def set_video_feature(self, propId, value):
-        self.camera.set(propId, value)  # propId in [0;18]
+        Args:
+            prop_id (int): Property to gather.
+
+        Returns:
+            any: Current value of the property.
+
+        """
+        return self.camera.get(prop_id)  # prop_id in [0;18]
+
+    def set_video_feature(self, prop_id: int, value: any) -> None:
+        """Set a property value.
+
+        Args:
+            prop_id (int): Property to change.
+            value (any): Value to set.
+
+        """
+        self.camera.set(prop_id, value)  # prop_id in [0;18]
 
 
 # TODO: divide in parts

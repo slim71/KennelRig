@@ -1,13 +1,17 @@
+"""The KennelRig file is the core of the application."""
 import signal
-import time
-import threading
 import subprocess
+import threading
+
 import cv2
-from WiggleChecker import WiggleChecker
+
 from BarkRecorder import BarkRecorder
+from WiggleChecker import WiggleChecker
 
 
 class KennelRig:
+    """Simple class to merge video and audio recordings."""
+
     camera: WiggleChecker
     mic: BarkRecorder
     video_filename: str
@@ -15,7 +19,17 @@ class KennelRig:
     parts: int
     start_event: threading.Event
 
-    def __init__(self, video_file: str = "video", audio_file: str = "audio", filename: str = "recording"):
+    def __init__(
+        self, video_file: str = "video", audio_file: str = "audio", filename: str = "recording",
+    ) -> None:
+        """Construct an object.
+
+        Args:
+            video_file (str, optional): Video file name. Defaults to "video".
+            audio_file (str, optional): Audio file name. Defaults to "audio".
+            filename (str, optional): Name for the final merged video. Defaults to "recording".
+
+        """
         self.video_filename = video_file
         self.audio_filename = audio_file
         self.filename = filename
@@ -28,7 +42,8 @@ class KennelRig:
         # Register signal handler
         signal.signal(signal.SIGINT, self.signal_handler)
 
-    def start(self):
+    def start(self) -> None:
+        """Start the entire Rig."""
         self.camera.start()
         self.mic.start()
         self.start_event.set()  # Signal actual start
@@ -40,7 +55,14 @@ class KennelRig:
         self.camera.stop()
         self.merge()  # TODO: only if not ctrl+c?
 
-    def signal_handler(self, sig, frame):
+    def signal_handler(self, sig, frame) -> None:  # noqa: ANN001, ARG002
+        """Handle the SIGINT signal.
+
+        Args:
+            sig (int): The signal number received.
+            frame (FrameType, optional): The current stack frame (or None) at the time of the signal.
+
+        """
         if not self.shutdown_initiated:
             print("\nCtrl+C detected! Stopping...")
             self.shutdown_initiated = True
@@ -49,10 +71,17 @@ class KennelRig:
             self.camera.signal_stop()
             self.mic.stop()
 
-    def merge(self):
+    def merge(self) -> None:
+        """Merge audio and video parts in a single file."""
         # Calculate the relative delays if available.
-        video_delay = self.camera.first_frame_time - self.camera.start_time if self.camera.first_frame_time else 0.0
-        audio_delay = self.mic.first_buffer_time - self.mic.start_time if self.mic.first_buffer_time else 0.0
+        video_delay = (
+            self.camera.first_frame_time - self.camera.start_time
+            if self.camera.first_frame_time
+            else 0.0
+        )
+        audio_delay = (
+            self.mic.first_buffer_time - self.mic.start_time if self.mic.first_buffer_time else 0.0
+        )
 
         # Compute the offset difference: positive if audio starts later than video.
         offset_diff = audio_delay - video_delay
@@ -69,30 +98,37 @@ class KennelRig:
             if offset_diff > 0:
                 command = [
                     "ffmpeg",
-                    "-i", video_file,
-                    "-itsoffset", str(offset_diff),
-                    "-i", audio_file,
-                    # "-c:v", "copy",
-                    "-c:a", "aac",
-                    "-async", "1",
-                    "-ss", "-1", # CHECK: might not always be enough delay
+                    "-i",
+                    video_file,
+                    "-itsoffset",
+                    str(offset_diff),
+                    "-i",
+                    audio_file,
+                    "-c:a",
+                    "aac",
+                    "-async",
+                    "1",
+                    "-ss",
+                    "-1",  # CHECK: might not always be enough delay
                     "-y",  # Overwrite without prompting
                     output_file,
                 ]
             else:
                 command = [
                     "ffmpeg",
-                    "-i", video_file,
-                    "-i", audio_file,
-                    # "-c:v", "copy",
-                    "-c:a", "aac",
-                    "-async", "10",
+                    "-i",
+                    video_file,
+                    "-i",
+                    audio_file,
+                    "-c:a",
+                    "aac",
+                    "-async",
+                    "10",
                     "-y",
                     output_file,
                 ]
             print("Running ffmpeg command:", " ".join(command))
             subprocess.call(command)
-
 
 
 if __name__ == "__main__":

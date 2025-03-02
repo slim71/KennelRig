@@ -1,3 +1,4 @@
+line-length = 100
+
 [lint]
 select = ["ALL"]
-line-length = 100

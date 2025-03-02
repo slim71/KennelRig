@@ -52,6 +52,7 @@ class BarkRecorder:
             rate=self.rate,
             input=True,
             frames_per_buffer=self.frames_per_buffer,
+            stream_callback=self.record
         )
 
     def record(self):
@@ -102,6 +103,15 @@ class BarkRecorder:
             waveFile.setframerate(self.rate)
             waveFile.writeframes(b"".join(self.audio_frames))
 
-    def start(self):
-        self.audio_thread = threading.Thread(target=self.record)
-        self.audio_thread.start()
+    def record(self, in_data, frame_count, time_info, status_flags):
+        # Callback: called automatically whenever new audio data is available.
+        # It runs in a separate thread.
+        if self.first_buffer_time is None:
+            self.first_buffer_time = time.time()
+            print("Audio first buffer timestamp:", self.first_buffer_time)
+        
+        # Store the incoming data
+        self.audio_frames.append(in_data)
+        
+        # Continue recording if running, else signal completion.
+        return (None, pyaudio.paContinue) if self.running else (None, pyaudio.paComplete)

@@ -1,8 +1,10 @@
+import signal
 import time
 import threading
 import subprocess
-from KennelRig.WiggleChecker import WiggleChecker
-from KennelRig.BarkRecorder import BarkRecorder
+import cv2
+from WiggleChecker import WiggleChecker
+from BarkRecorder import BarkRecorder
 
 
 class KennelRig:
@@ -21,17 +23,31 @@ class KennelRig:
         self.start_event = threading.Event()
         self.camera = WiggleChecker(start_event=self.start_event)
         self.mic = BarkRecorder(start_event=self.start_event, rate=16000)
+        self.shutdown_initiated = False
+
+        # Register signal handler
+        signal.signal(signal.SIGINT, self.signal_handler)
 
     def start(self):
         self.camera.start()
         self.mic.start()
         self.start_event.set()  # Signal actual start
 
-        while self.camera.running:
-            time.sleep(0.1)
-        self.mic.stop()
+        self.camera.display()
 
-        self.merge()
+        cv2.destroyAllWindows()
+        self.mic.stop()
+        self.camera.stop()
+        self.merge()  # TODO: only if not ctrl+c?
+
+    def signal_handler(self, sig, frame):
+        if not self.shutdown_initiated:
+            print("\nCtrl+C detected! Stopping...")
+            self.shutdown_initiated = True
+
+            # Force video and audio to stop.
+            self.camera.signal_stop()
+            self.mic.stop()
 
     def merge(self):
         # Calculate the relative delays if available.
@@ -70,7 +86,7 @@ class KennelRig:
                     "-i", audio_file,
                     # "-c:v", "copy",
                     "-c:a", "aac",
-                    "-async", "1",
+                    "-async", "10",
                     "-y",
                     output_file,
                 ]

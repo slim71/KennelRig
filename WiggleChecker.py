@@ -1,3 +1,4 @@
+import signal
 import sys
 import cv2
 import time
@@ -18,6 +19,7 @@ class WiggleChecker:
     fourcc: int
     writer: cv2.VideoWriter
     start_time: float
+    stop_event: threading.Event
 
     def __init__(
         self,
@@ -38,6 +40,9 @@ class WiggleChecker:
         self.filename = video_file
         self.start_event = start_event
         self.start_time = None
+        self.stop_event = threading.Event()
+        self.current_frame = None  # to share the latest frame with the main thread
+
         # 4-byte code used to specify the video codec
         self.fourcc = cv2.VideoWriter_fourcc(*"MJPG")  #  TODO: different if windows?
 
@@ -56,13 +61,46 @@ class WiggleChecker:
             isColor=True,
         )
 
+    def start(self):
+        """Launch the video recording function using a thread."""
+        self.running = True
+        self.stop_event.clear()
+        video_thread = threading.Thread(target=self.record)
+        video_thread.daemon = True
+        video_thread.start()
+
+    def signal_stop(self):
+        self.running  = False
+        self.stop_event.set()
+
+    def stop(self):
+        # When everything done, release the capture
+        if self.camera.isOpened():
+            self.camera.release()
+        self.writer.release()
+
+    def display(self):
+        """Run the display loop on the main thread."""
+        while self.running:
+            if self.current_frame is not None:
+                cv2.imshow("Video Capture", self.current_frame)
+
+            # Check for 'q' key press
+            if cv2.waitKey(10) == ord("q"):
+                print("q pressed, stopping...")
+                self.signal_stop()
+                break
+
+            time.sleep(0.01)  # Prevent a tight loop
+
+        print("out of while loop")
+
+
     def record(self):
         # Wait until signaled to start
         self.start_event.wait()
         self.start_time = time.time()
-        self.first_frame_time = (
-            None  # New: to capture timestamp of the first audio buffer
-        )
+        self.first_frame_time = None
 
         while self.running and self.camera.isOpened():
             # Capture frame-by-frame
@@ -81,30 +119,10 @@ class WiggleChecker:
 
             # Write the frame to the video file
             self.writer.write(frame)
-
-            # Display the resulting frame
-            cv2.imshow("Video Capture", frame)
-
-            # Press 'q' to exit the video capture TODO: how to also use the X?
-            status = cv2.getWindowProperty("Video Capture", cv2.WND_PROP_VISIBLE)
-            if cv2.waitKey(10) == ord("q"):
-                break
-
-        self.close()  # TODO: close from main thread
-
-    def start(self):
-        """Launch the video recording function using a thread."""
-        self.running = True
-        video_thread = threading.Thread(target=self.record)
-        video_thread.start()
-
-    def close(self):
-        # When everything done, release the capture
-        if self.running:
-            self.running = False
-            self.camera.release()
-            self.writer.release()
-            cv2.destroyAllWindows()
+            self.current_frame = frame
+        
+        print("Video recording thread exiting, signaling stop")
+        self.signal_stop()
 
     def get_video_feature(self, propId):
         return self.camera.get(propId)  # propId in [0;18]

@@ -40,6 +40,7 @@ class BarkRecorder:
         self.audio_thread = None
         self.start_event = start_event
         self.start_time = None
+        self.first_buffer_time = None
 
         self.listener = pyaudio.PyAudio()
         print(
@@ -55,45 +56,24 @@ class BarkRecorder:
             stream_callback=self.record
         )
 
-    def record(self):
-        # Wait until signaled to start
-        self.start_event.wait()
+    def start(self):
         self.running = True
+        self.audio_thread = threading.Thread(target=self.standalone_thread)
+        self.audio_thread.start()
+
+    def standalone_thread(self):
+        self.start_event.wait()
         self.start_time = time.time()
         self.stream.start_stream()
-        self.first_buffer_time = (
-            None  # New: to capture timestamp of the first audio buffer
-        )
-
-        while self.running and self.stream.is_active():
-            try:
-                data = self.stream.read(
-                    self.frames_per_buffer, exception_on_overflow=False
-                )
-                # On the first successful read, record the timestamp
-                if self.first_buffer_time is None:
-                    self.first_buffer_time = time.time()
-                    print("Audio first buffer timestamp:", self.first_buffer_time)
-            except Exception as e:
-                print("Error reading from stream:", e)
-                break
-            self.audio_frames.append(data)
-        print("Exiting audio recording thread.")
 
     def stop(self):
-        # Signal the recording thread to stop
         self.running = False
 
-        # Optionally, wait for the thread to finish if you need to
-        if self.audio_thread is not None:
-            self.audio_thread.join()
-
+        # Stop the stream gracefully.
         if self.stream.is_active():
             self.stream.stop_stream()
-
         self.stream.close()
-
-        # Get the sample width before terminating the listener
+    
         sampwidth = self.listener.get_sample_size(self.format)
         self.listener.terminate()
 
